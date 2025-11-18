@@ -1,48 +1,78 @@
 """
-Database Schemas
+Database Schemas for AI Hijabi Model Studio
 
-Define your MongoDB collection schemas here using Pydantic models.
-These schemas are used for data validation in your application.
-
-Each Pydantic model represents a collection in your database.
-Model name is converted to lowercase for the collection name:
-- User -> "user" collection
-- Product -> "product" collection
-- BlogPost -> "blogs" collection
+Each Pydantic model corresponds to a MongoDB collection (lowercased name).
+These are used for validation and are exposed via the /schema endpoint for tools.
 """
-
+from typing import List, Optional, Dict, Any, Literal
 from pydantic import BaseModel, Field
-from typing import Optional
 
-# Example schemas (replace with your own):
 
+class Model(BaseModel):
+    """
+    Represents a creator's reusable hijabi model identity
+    Collection: "model"
+    """
+    name: str = Field(..., description="Model name (e.g., Aisha v1)")
+    description: Optional[str] = Field(None, description="Notes about look and brand fit")
+    identity_seed: Optional[str] = Field(None, description="Seed value for identity consistency")
+    tags: List[str] = Field(default_factory=list, description="Keywords like modest, urban, pastel")
+    style_preset: Optional[str] = Field(None, description="High-level preset (studio, street, editorial)")
+    face_embeddings: Optional[List[str]] = Field(None, description="Embedding ids for face consistency")
+    consistency_profile: Dict[str, Any] = Field(default_factory=dict, description="Parameters to enforce consistency")
+
+
+class Pipeline(BaseModel):
+    """
+    Visual pipeline definition composed of nodes and edges
+    Collection: "pipeline"
+    """
+    name: str
+    version: str = "1.0"
+    is_active: bool = True
+    nodes: List[Dict[str, Any]] = Field(default_factory=list, description="Pipeline nodes (loader, lora, control, render)")
+    edges: List[Dict[str, Any]] = Field(default_factory=list, description="Connections between nodes")
+
+
+class Dataset(BaseModel):
+    """
+    Group of generated/curated images to train fine-tunes (LoRA-like)
+    Collection: "dataset"
+    """
+    model_id: Optional[str] = Field(None, description="Associated model identity")
+    title: str = Field(..., description="Dataset title")
+    status: Literal["idle", "building", "ready", "failed"] = "idle"
+    size: int = 0
+    items: List[Dict[str, Any]] = Field(default_factory=list, description="Images and annotations")
+
+
+class Job(BaseModel):
+    """
+    Generation or dataset job tracked by the system
+    Collection: "job"
+    """
+    type: Literal[
+        "face", "fullbody", "angles360", "expression", "background", "dress", "dataset"
+    ]
+    model_id: Optional[str] = None
+    pipeline_id: Optional[str] = None
+    params: Dict[str, Any] = Field(default_factory=dict)
+    status: Literal["queued", "running", "succeeded", "failed"] = "queued"
+    progress: int = 0
+    output: List[Dict[str, Any]] = Field(default_factory=list, description="Generated assets or dataset references")
+
+
+# Backwards-compatible sample schemas retained for reference (not used by the app)
 class User(BaseModel):
-    """
-    Users collection schema
-    Collection name: "user" (lowercase of class name)
-    """
-    name: str = Field(..., description="Full name")
-    email: str = Field(..., description="Email address")
-    address: str = Field(..., description="Address")
-    age: Optional[int] = Field(None, ge=0, le=120, description="Age in years")
-    is_active: bool = Field(True, description="Whether user is active")
+    name: str
+    email: str
+    address: str
+    age: Optional[int] = None
+    is_active: bool = True
 
 class Product(BaseModel):
-    """
-    Products collection schema
-    Collection name: "product" (lowercase of class name)
-    """
-    title: str = Field(..., description="Product title")
-    description: Optional[str] = Field(None, description="Product description")
-    price: float = Field(..., ge=0, description="Price in dollars")
-    category: str = Field(..., description="Product category")
-    in_stock: bool = Field(True, description="Whether product is in stock")
-
-# Add your own schemas here:
-# --------------------------------------------------
-
-# Note: The Flames database viewer will automatically:
-# 1. Read these schemas from GET /schema endpoint
-# 2. Use them for document validation when creating/editing
-# 3. Handle all database operations (CRUD) directly
-# 4. You don't need to create any database endpoints!
+    title: str
+    description: Optional[str] = None
+    price: float
+    category: str
+    in_stock: bool = True
